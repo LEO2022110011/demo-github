@@ -10,6 +10,7 @@ import { SpaceContext } from "./SpaceContext";
 import { uploadFile } from "./utils/file";
 import message from "./utils/message";
 import service from "./utils/request";
+import { ExploreToolbar } from './component/ExploreToolbar';
 
 import "nprogress/nprogress.css";
 import "./App.css";
@@ -20,24 +21,25 @@ import { resolvePermissions } from "./utils/permissions";
 // the space id.
 
 function App() {
-	const { coolApps,isLogin, setIsLogin } = useContext(SpaceContext)
+	const { coolApps, isLogin, setIsLogin } = useContext(SpaceContext)
 
 	const [spaces, setSpaces] = useState([]);
-	const [path, setPath] = useState([]);	
+	const [path, setPath] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const [fileList, setFileList] = useState([]);
 	const [sortOrder, setSortOrder] = useState({ field: 'Name', order: 'asc' });
 	const [selectedItems, setSelectedItems] = useState({});
 	const [uploadList, setUploadList] = useState({})
-  const [isPropertiesModalVisible,setIsPropertiesModalVisible] = useState(false)
-  const [isExistModalVisible,setIsExistModalVisible] = useState(false)
-  const [currentItem, setCurrentItem] = useState({});
-  const [view, setView] = useState("list");
-  const [currentFiles, setCurrentFiles] = useState([]);
-  const resolvedPermissions = useMemo(() => resolvePermissions(selectedItems), [selectedItems]);
+	const [isPropertiesModalVisible, setIsPropertiesModalVisible] = useState(false)
+	const [isExistModalVisible, setIsExistModalVisible] = useState(false)
+	const [currentItem, setCurrentItem] = useState({});
+	const [view, setView] = useState("list");
+	const [currentFiles, setCurrentFiles] = useState([]);
+	const resolvedPermissions = useMemo(() => resolvePermissions(selectedItems), [selectedItems]);
+	const [filteredTags, setFilteredTags] = useState([]);
 
 
-  const uploadListRef = useRef({})
+	const uploadListRef = useRef({})
 
 	const extensions = useMemo(() => {
 		const allExtensions = ['txt'];
@@ -59,30 +61,30 @@ function App() {
 		}, [path]
 	);
 
-    function login(username, password) {
-        service.post(
-            "/signin", {username, password,}
-        ).then (
-            () => {
-                sessionStorage.setItem("loginState", 1);
-                setIsLogin(true);
-            }
-        ).catch (
-            (error) => { message("error",error); }
-        );
-    };
+	function login(username, password) {
+		service.post(
+			"/signin", { username, password, }
+		).then(
+			() => {
+				sessionStorage.setItem("loginState", 1);
+				setIsLogin(true);
+			}
+		).catch(
+			(error) => { message("error", error); }
+		);
+	};
 
-    function logout() {
-        service.get("/signout").then(() => {
-            sessionStorage.clear();
-            window.location.reload();
-            setIsLogin(false);
-        });
-    }
+	function logout() {
+		service.get("/signout").then(() => {
+			sessionStorage.clear();
+			window.location.reload();
+			setIsLogin(false);
+		});
+	}
 
 	async function getSpaces() {
 		setLoading(true);
-		try {			
+		try {
 			const rawSpacesData = await service.get("/filer/space"); // return list of (space_id, space_name, space_class)
 			if (Array.isArray(!rawSpacesData)) return;
 			const filteredSpaces = rawSpacesData
@@ -95,6 +97,7 @@ function App() {
 			filteredSpaces.push(
 				{ id: "favour", caption: "Favour", class: "special" },
 				{ id: "search", caption: "Search", class: "special" },
+				{ id: "explorer", caption: "Explorer", class: "explore" },
 				{ id: "recent", caption: "Recent", class: "special" },
 				{ id: "trash", caption: "Trash", class: "special" },
 			)
@@ -111,19 +114,19 @@ function App() {
 		const sortedItems = [...items];
 
 		sortedItems.sort((a, b) => {
-		  if (a.is_folder && !b.is_folder) {
-			return -1;
-		  }
-		  if (!a.is_folder && b.is_folder) {
-			return 1;
-		  }
-		  let x = 0;
-		  if (sortOrder.field === "Name") {
-			x = a.item_name.localeCompare(b.item_name);
-		  } else {
-			x = a.modified_time.localeCompare(b.modified_time);
-		  };
-		  return sortOrder.order === "asc" ? x : -x;
+			if (a.is_folder && !b.is_folder) {
+				return -1;
+			}
+			if (!a.is_folder && b.is_folder) {
+				return 1;
+			}
+			let x = 0;
+			if (sortOrder.field === "Name") {
+				x = a.item_name.localeCompare(b.item_name);
+			} else {
+				x = a.modified_time.localeCompare(b.modified_time);
+			};
+			return sortOrder.order === "asc" ? x : -x;
 		});
 		return sortedItems;
 	}
@@ -177,65 +180,67 @@ function App() {
 	function openFolder(card) {
 		const { item_id, item_name } = card;
 		getFileList(item_id);
-		if(item_id === spaceInfo.space_id) {
-			setPath([{id: item_id, name: item_name,},]);
+		if (item_id === spaceInfo.space_id) {
+			setPath([{ id: item_id, name: item_name, },]);
 		} else {
-			setPath([...path, {id: item_id, name: item_name,},]);
-		}    
+			setPath([...path, { id: item_id, name: item_name, },]);
+		}
 	};
-  
+
 
 
 	async function upload(file, action = '') {
-        const fileKey = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        setUploadList(prevUploadList => ({
-            ...prevUploadList,
-            [fileKey]: {
-                value: '0%',
-                status: 'pending',
-                name: file.name
-            }
-        }));
-    
-        message("loading", "Uploading now");
-        try {
-            await uploadFile(file, spaceInfo, (value, cancelToken, id) => {
-                setUploadList(prevUploadList =>  {
-                    const result = {...prevUploadList,
-                      [fileKey]: {
-                          value,
-                          status: 'pending',
-                          name: file.name,
-                          cancelToken,
-                          id
-                      }}
-                    uploadListRef.current = result
-                    
-                    return result
-                });
-            }, action);
-            
-            await getFileList(spaceInfo.current_id);
+		const fileKey = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+		setUploadList(prevUploadList => ({
+			...prevUploadList,
+			[fileKey]: {
+				value: '0%',
+				status: 'pending',
+				name: file.name
+			}
+		}));
 
-            message("success", "Upload successfully");
-    
-        } catch (error) {
-            message("error", error);
-        }
-    };
-    useEffect(() => {
-      const list = {...uploadListRef.current}
-      Object.keys(list).forEach(key => {
-        if(list[key].value === '100%') {
-          delete list[key]
-        }
-      })
-      setTimeout(() => {
-        if(Object.keys(list).length !== Object.keys(uploadListRef.current).length) {
-          setUploadList(list)
-        }
-      }, 1000);
-    }, [uploadListRef.current]);
+		message("loading", "Uploading now");
+		try {
+			await uploadFile(file, spaceInfo, (value, cancelToken, id) => {
+				setUploadList(prevUploadList => {
+					const result = {
+						...prevUploadList,
+						[fileKey]: {
+							value,
+							status: 'pending',
+							name: file.name,
+							cancelToken,
+							id
+						}
+					}
+					uploadListRef.current = result
+
+					return result
+				});
+			}, action);
+
+			await getFileList(spaceInfo.current_id);
+
+			message("success", "Upload successfully");
+
+		} catch (error) {
+			message("error", error);
+		}
+	};
+	useEffect(() => {
+		const list = { ...uploadListRef.current }
+		Object.keys(list).forEach(key => {
+			if (list[key].value === '100%') {
+				delete list[key]
+			}
+		})
+		setTimeout(() => {
+			if (Object.keys(list).length !== Object.keys(uploadListRef.current).length) {
+				setUploadList(list)
+			}
+		}, 1000);
+	}, [uploadListRef.current]);
 
 
 	async function handleItemClick(card) {
@@ -249,63 +254,63 @@ function App() {
 		}
 		setSelectedItems(selectedItemsCopy);
 	};
-  console.log(spaceInfo);
-  
-  async function checkExists(file) {
-    // const result = fileList.some(item => item.item_name === file.name)
-    // if(result) {
-    //   setIsExistModalVisible(true)
-    //   setCurrentFiles((prevFiles) => [...prevFiles, file])
-    // }
-    // return result
-    try {
-      const {exists} = await service.post('/filer/check_file_existence', {
-        "folder_id": spaceInfo.folder_id || spaceInfo.space_id,
-        "file_name": file.name,
-        "file_type": "."  
-      })
-      if(exists) {
-        setIsExistModalVisible(true)
-        setCurrentFiles((prevFiles) => [...prevFiles, file])
-      }
-      return exists
-    } catch (error) {
-      return false
-    }
-  }
+	console.log(spaceInfo);
 
-  async function replaceFile(replace = true) {
-    const filesSlice = [...currentFiles];
-    filesSlice.shift();
-    setCurrentFiles(filesSlice);
+	async function checkExists(file) {
+		// const result = fileList.some(item => item.item_name === file.name)
+		// if(result) {
+		//   setIsExistModalVisible(true)
+		//   setCurrentFiles((prevFiles) => [...prevFiles, file])
+		// }
+		// return result
+		try {
+			const { exists } = await service.post('/filer/check_file_existence', {
+				"folder_id": spaceInfo.folder_id || spaceInfo.space_id,
+				"file_name": file.name,
+				"file_type": "."
+			})
+			if (exists) {
+				setIsExistModalVisible(true)
+				setCurrentFiles((prevFiles) => [...prevFiles, file])
+			}
+			return exists
+		} catch (error) {
+			return false
+		}
+	}
 
-    if (filesSlice.length === 0) {
-        setIsExistModalVisible(false);
-    }
+	async function replaceFile(replace = true) {
+		const filesSlice = [...currentFiles];
+		filesSlice.shift();
+		setCurrentFiles(filesSlice);
 
-    if (replace) {
-      await upload(currentFiles[0], 'replace');
-    } else {
-      await upload(currentFiles[0]);
-    }
+		if (filesSlice.length === 0) {
+			setIsExistModalVisible(false);
+		}
 
-  }
+		if (replace) {
+			await upload(currentFiles[0], 'replace');
+		} else {
+			await upload(currentFiles[0]);
+		}
 
-  async function continueUpload() {
-    replaceFile(false)
-  }
+	}
+
+	async function continueUpload() {
+		replaceFile(false)
+	}
 
 
 	async function handleFileDrop(e) {
 		e.preventDefault();
 		const files = e.dataTransfer?.files;
 		if (files) {
-            for (var i = 0; i < files.length; i++) {
-                const result = checkExists(files[i])
-                if(!result) {
-                  upload(files[i])
-                }
-            }
+			for (var i = 0; i < files.length; i++) {
+				const result = checkExists(files[i])
+				if (!result) {
+					upload(files[i])
+				}
+			}
 		}
 	};
 
@@ -318,30 +323,30 @@ function App() {
 
 	useEffect(() => {
 		if (isLogin) {
-            const sessionSpaces = sessionStorage.getItem("spaces")
-            const sessionPath = sessionStorage.getItem("path")
-            if(sessionSpaces) {
-                const spaceParse = JSON.parse(sessionSpaces)
-                setSpaces(spaceParse)
-                const pathParse = JSON.parse(sessionPath)
-                const currentLocation = pathParse[pathParse.length - 1]
-                if(['search','trash','recent'].includes(currentLocation.id)) {
-                    switchSpace(currentLocation)
-                } else {
-                    setPath(pathParse)
-                    getFileList(currentLocation.id)
-                }
-            } else {
-                getSpaces();
-            }
+			const sessionSpaces = sessionStorage.getItem("spaces")
+			const sessionPath = sessionStorage.getItem("path")
+			if (sessionSpaces && sessionPath) {
+				const spaceParse = JSON.parse(sessionSpaces)
+				setSpaces(spaceParse)
+				const pathParse = JSON.parse(sessionPath)
+				const currentLocation = pathParse[pathParse.length - 1]
+				if (['search', 'trash', 'recent'].includes(currentLocation.id)) {
+					switchSpace(currentLocation)
+				} else {
+					setPath(pathParse)
+					getFileList(currentLocation.id)
+				}
+			} else {
+				getSpaces();
+			}
 		}
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [isLogin]);
 
-  useEffect(() => {
-    const historyView = localStorage.getItem('view') || 'list'
-    setView(historyView)
-  }, []);
+	useEffect(() => {
+		const historyView = localStorage.getItem('view') || 'list'
+		setView(historyView)
+	}, []);
 
 	useEffect(() => {
 		setSelectedItems({});
@@ -350,23 +355,42 @@ function App() {
 	useEffect(() => {
 		const data = sortItems(fileList)
 		setFileList(data)
-	 // eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [sortOrder]);
 
-    useEffect(() => {
-        if(path?.length === 0) return
-        sessionStorage.setItem("path",JSON.stringify(path))
-    }, [path]);
+	useEffect(() => {
+		if (path?.length === 0) return
+		sessionStorage.setItem("path", JSON.stringify(path))
+	}, [path]);
+	console.log('path', path);
+
+	const isExplorer = path?.[0]?.id === "explorer"
+
+	const handleTagsChange = (tags) => {
+		setFilteredTags(tags);
+		// Here you would typically make an API call to fetch files with these tags
+		// For now, we'll just filter the existing fileList
+		if (tags.length === 0) {
+			getFileList(spaceInfo.current_id);
+		} else {
+			// This is a placeholder - replace with actual tag filtering logic
+			const filteredFiles = fileList.filter(file => 
+				// Assuming each file has a tags array property
+				tags.some(tag => file.tags?.includes(tag))
+			);
+			setFileList(filteredFiles);
+		}
+	};
 
 	return (
 		<div className="App flex">
-			<Sidebar spaces={spaces} path={path} switchSpace={switchSpace} spaceInfo={spaceInfo}/>
+			<Sidebar spaces={spaces} path={path} switchSpace={switchSpace} spaceInfo={spaceInfo} />
 			<div className="w-56 hidden sm:block">
 			</div>
-			{!isLogin && 
+			{!isLogin &&
 				<LoginForm doLogin={login} />
 			}
-			<div className="flex-1 px-4 pb-4 h-screen" 
+			<div className="flex-1 px-4 pb-4 h-screen"
 				onDrop={handleFileDrop}
 				onDragOver={(e) => e.preventDefault()}
 				onDragEnter={(e) => e.preventDefault()}>
@@ -380,18 +404,23 @@ function App() {
 					handleLogout={logout}
 					getFileList={getFileList}
 					selectedItems={selectedItems}
-          setSelectedItems={setSelectedItems}
+					setSelectedItems={setSelectedItems}
 					openFolder={openFolder}
 					sortOrder={sortOrder}
 					setSortOrder={setSortOrder}
-          upload={upload}
-          view={view}
-          setView={setView}
-          checkExists={checkExists}
-		  resolvedPermissions={resolvedPermissions}
+					upload={upload}
+					view={view}
+					setView={setView}
+					checkExists={checkExists}
+					resolvedPermissions={resolvedPermissions}
 				/>
+				{isExplorer && (
+					<ExploreToolbar 
+						onTagsChange={handleTagsChange}
+					/>
+				)}
 				<div className={` pb-4 box-border mt-[96px] pl-[2px] pr-[2px] ${view === 'grid' ? "flex flex-wrap gap-5" : "space-y-4"}`}>
-          {!loading && (
+					{!loading && !isExplorer && (
 						<FileList
 							openFolder={openFolder}
 							fileList={fileList}
@@ -400,26 +429,43 @@ function App() {
 							spaceInfo={spaceInfo}
 							getFileList={getFileList}
 							setPath={setPath}
-              setIsPropertiesModalVisible={setIsPropertiesModalVisible}
-              setCurrentItem={setCurrentItem}
-              view={view}
-					    selectedItems={selectedItems}
+							setIsPropertiesModalVisible={setIsPropertiesModalVisible}
+							setCurrentItem={setCurrentItem}
+							view={view}
+							selectedItems={selectedItems}
 						/>
 					)}
-					{!loading && path.length > 0 && fileList?.length === 0 && (
+					{!loading && path.length > 0 && fileList?.length === 0 && !isExplorer && (
 						<div className=" flex items-center text-zinc-700">
 							There are no files in the current directory.
 						</div>
 					)}
+					{isExplorer && (
+						<div className="w-full">
+							<FileList
+								openFolder={openFolder}
+								fileList={fileList}
+								extensions={extensions}
+								handleItemClick={handleItemClick}
+								spaceInfo={spaceInfo}
+								getFileList={getFileList}
+								setPath={setPath}
+								setIsPropertiesModalVisible={setIsPropertiesModalVisible}
+								setCurrentItem={setCurrentItem}
+								view={view}
+								selectedItems={selectedItems}
+							/>
+						</div>
+					)}
 				</div>
 			</div>
-      {useMemo(() => <Progress spaceInfo={spaceInfo} getFileList={getFileList} uploadList={uploadList} setUploadList={setUploadList} />, [uploadList])}
-      {isExistModalVisible && <Dialog 
-      title={() => <div>
-        The <span className="text-zinc-800">{currentFiles[0]?.name}</span> already exists. Do you want to replace it?
-      </div>}
-      confirmButtonColor="bg-[#ffa270]" onConfirm={replaceFile} onCancel={continueUpload} confirmText="Replace it" cancelText="No, just upload" />}
-      {isPropertiesModalVisible && <PropertiesModal setCurrentItem={setCurrentItem} getFileList={getFileList} spaceInfo={spaceInfo} setIsPropertiesModalVisible={setIsPropertiesModalVisible} itemInfo={currentItem} permissions={resolvedPermissions} />}
+			{useMemo(() => <Progress spaceInfo={spaceInfo} getFileList={getFileList} uploadList={uploadList} setUploadList={setUploadList} />, [uploadList])}
+			{isExistModalVisible && <Dialog
+				title={() => <div>
+					The <span className="text-zinc-800">{currentFiles[0]?.name}</span> already exists. Do you want to replace it?
+				</div>}
+				confirmButtonColor="bg-[#ffa270]" onConfirm={replaceFile} onCancel={continueUpload} confirmText="Replace it" cancelText="No, just upload" />}
+			{isPropertiesModalVisible && <PropertiesModal setCurrentItem={setCurrentItem} getFileList={getFileList} spaceInfo={spaceInfo} setIsPropertiesModalVisible={setIsPropertiesModalVisible} itemInfo={currentItem} permissions={resolvedPermissions} />}
 		</div>
 	);
 }

@@ -45,7 +45,7 @@ function Search({ setFileList }) {
                     onKeyUp={handleKeyPress}
                     onKeyDown={handleKeyPress}
                     className="block w-full p-2 ps-10 text-sm text-gray-900 rounded-lg bg-[#e9eef6] outline-none focus:bg-white focus:shadow focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Search Folder, Files..."
+                    placeholder="Search Folder, Files... 123"
                 />
             </div>
         </form>

@@ -1,0 +1,7 @@
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-handle:hover {
+  background-color: #e5e7eb;
+} 

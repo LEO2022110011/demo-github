@@ -7,6 +7,8 @@ import {
   faTrashCan,
   faMagnifyingGlass,
   faHeart,
+  faTag, faTags
+
 } from "@fortawesome/free-solid-svg-icons";
 import { cn } from "../utils/string";
 
@@ -18,6 +20,7 @@ const spaceIcons = {
   trash: faTrashCan,
   favour: faHeart,
   tasks: faListUl,
+  explore: faTags,
 };
 
 function getSpaceIcon(spaceClass, spaceId) {

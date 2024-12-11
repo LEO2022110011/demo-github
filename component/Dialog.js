@@ -5,7 +5,7 @@ function Dialog({title, onCancel, onConfirm, children, confirmText="Yes, I'm sur
       } else if (typeof title === 'string') {
           return title;
       }
-      return null; // 处理其他类型的情况
+      return null; // Handle other types
   };
     return (
         <div

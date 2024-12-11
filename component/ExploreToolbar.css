@@ -1,0 +1,34 @@
+.content {
+  padding: 17px 0 17px 17px;
+  width: 100%; /* Change from 300px to fit container */
+  height: auto; /* Auto adjust height */
+  overflow-y: hidden; /* Hide default scrollbar */
+  position: relative;
+}
+
+.content:hover {
+  overflow-y: scroll; /* Show scrollbar when hover */
+}
+
+/* Customize scrollbar for Chrome, Safari and other WebKit-based browsers */
+.content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.content {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+} 
